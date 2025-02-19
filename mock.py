@@ -2,10 +2,10 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, FunctionTransformer
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
-from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, confusion_matrix
 
 # 📌 1. 读取数据
@@ -57,21 +57,31 @@ y = df['Outcome']  # 目标变量（是否患有糖尿病）
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42, stratify=y)
 
-# 📌 7. 进行标准化，并创建数据处理Pipeline
+# 📌 7. 进行标准化，并创建 SVM Pipeline
 pipeline = Pipeline([
     ('scaler', StandardScaler()),  # 标准化
-    ('classifier', LogisticRegression())  # 逻辑回归
+    ('classifier', SVC(kernel='rbf'))  # SVM 分类器
 ])
 
-# 📌 8. 训练模型
-pipeline.fit(X_train, y_train)
+# 📌 8. 定义 Grid Search 进行超参数优化
+param_grid = {
+    'classifier__C': [0.1, 1, 10, 100],  # 正则化参数
+    'classifier__gamma': [0.01, 0.1, 1, 10],  # 核函数参数
+}
 
-# 📌 9. 进行预测
-y_pred = pipeline.predict(X_test)
+grid_search = GridSearchCV(pipeline, param_grid, cv=5, scoring='accuracy', verbose=1, n_jobs=-1)
+grid_search.fit(X_train, y_train)
+
+# 📌 9. 获取最佳参数
+print(f"最佳参数：{grid_search.best_params_}")
+
+# 使用最佳模型进行预测
+best_model = grid_search.best_estimator_
+y_pred = best_model.predict(X_test)
 
 # 📌 10. 计算准确率
 accuracy = accuracy_score(y_test, y_pred)
-print(f"逻辑回归模型的准确率：{accuracy:.4f}")
+print(f"SVM 模型的最佳准确率：{accuracy:.4f}")
 
 # 📌 11. 生成混淆矩阵
 conf_matrix = confusion_matrix(y_test, y_pred)
@@ -81,5 +91,5 @@ plt.figure(figsize=(6, 4))
 sns.heatmap(conf_matrix, annot=True, cmap="Blues", fmt="d", xticklabels=["No Diabetes", "Diabetes"], yticklabels=["No Diabetes", "Diabetes"])
 plt.xlabel("Predicted Label")
 plt.ylabel("True Label")
-plt.title("混淆矩阵")
+plt.title("SVM 混淆矩阵")
 plt.show()
